@@ -1,103 +1,29 @@
-//
-const videoElement = document.getElementById('video');
-const canvasElement = document.getElementById('output_canvas');
-const canvasCtx = canvasElement.getContext('2d');
+// --- ADD THESE LINES AT THE VERY TOP OF script.js ---
 
-let camera; 
+// Catch any unhandled errors and send them to the Expo terminal
+window.onerror = function(message, url, line, col, error) {
+    if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'error',
+            message: 'Unhandled JS Error',
+            error: error ? error.stack : message + ' at line ' + line
+        }));
+    }
+    return true; // Prevents default browser error handling
+};
 
-function postMessageToReactNative(data) {
-  if (window.ReactNativeWebView) {
-    window.ReactNativeWebView.postMessage(JSON.stringify(data));
-  }
-}
-
-const pose = new Pose({
-  locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-  }
+// Catch unhandled promise rejections (very common with camera access)
+window.addEventListener('unhandledrejection', (event) => {
+    if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'error',
+            message: 'Unhandled Promise Rejection (likely Camera block)',
+            error: event.reason.stack || event.reason.toString()
+        }));
+    }
+    event.preventDefault();
 });
 
-pose.setOptions({
-  modelComplexity: 1, 
-  smoothLandmarks: true,
-  enableSegmentation: true,
-  smoothSegmentation: true,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5
-});
-
-pose.onResults((results) => {
-  if (canvasElement.width !== results.image.width || canvasElement.height !== results.image.height) {
-    canvasElement.width = results.image.width;
-    canvasElement.height = results.image.height;
-  }
-  
-  canvasCtx.save();
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-  if (results.segmentationMask) {
-    canvasCtx.globalCompositeOperation = 'source-in'; 
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-    canvasCtx.globalCompositeOperation = 'destination-atop';
-    canvasCtx.fillStyle = '#FFFFFF';
-    canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-  }
-
-  canvasCtx.globalCompositeOperation = 'source-over'; 
-  if (results.poseLandmarks) {
-    drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
-      color: '#00FF00', 
-      lineWidth: 4
-    });
-    drawLandmarks(canvasCtx, results.poseLandmarks, {
-      color: '#FF0000', 
-      lineWidth: 2
-    });
-    
-    // ⭐️ NEW: Send the raw pose landmark data back to React Native ⭐️
-    postMessageToReactNative({ 
-        type: "poseData", 
-        landmarks: results.poseLandmarks 
-    });
-  }
-
-  canvasCtx.restore();
-});
-
-async function setupCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: {
-        facingMode: "user" 
-      }
-    });
-    
-    videoElement.srcObject = stream;
-    await videoElement.play();
-
-    camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await pose.send({ image: videoElement });
-      },
-      width: videoElement.videoWidth,
-      height: videoElement.videoHeight
-    });
-    camera.start();
-
-    postMessageToReactNative({ type: "status", message: "MediaPipe Engine Ready" });
-
-  } catch (error) {
-    postMessageToReactNative({ 
-      type: "error", 
-      message: "Failed to start camera or MediaPipe.", 
-      error: error.message 
-    });
-  }
-}
-
-setupCamera();
-
-window.addEventListener("message", (event) => {
-  // Add logic to handle commands from React Native
-});
+// --- REST OF YOUR ORIGINAL script.js CODE FOLLOWS ---
+// e.g., const video = document.getElementById("video");
+// etc.
