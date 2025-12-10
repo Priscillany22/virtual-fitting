@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MediaPipe Engine</title>
+  
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    #output_canvas { position: absolute; top: 0; left: 0; }
+    #video { 
+      position: absolute; top: 0; left: 0; 
+      /* Make sure video covers the screen and is centered */
+      width: 100%; height: 100%; object-fit: cover; 
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  
+</head>
+<body>
+  <video id="video" playsinline></video>
+  
+  <canvas id="output_canvas"></canvas>
+  
+  <script src="script.js"></script>
+</body>
+</html>
