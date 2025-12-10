@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MediaPipe Selfie Segmentation</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.global.js"></script>
+    <title>Virtual Fitting Room</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.global.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.global.js"></script> 
     
     <style>
         body {
@@ -19,7 +22,7 @@
             height: 100vh;
         }
         #video {
-            display: none; /* Hide the raw video feed */
+            display: none;
         }
         #canvas {
             position: absolute;
