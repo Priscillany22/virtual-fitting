@@ -36,13 +36,12 @@ statusDiv.style.fontSize = '20px';
 document.body.appendChild(statusDiv);
 statusDiv.textContent = 'Status: JS Running, App Loaded...';
 
-// Global variables for MediaPipe setup
+// Global variables
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-// NOTE: We don't need the SelfieSegmentation model anymore, Pose does the job!
 let segmentationMask = null;
-let poseLandmarks = null; // Will store the pose data
+let poseLandmarks = null; 
 
 
 // 3. MEDIAPIPE POSE MODEL INITIALIZATION
@@ -51,21 +50,81 @@ const pose = new Pose({locateFile: (file) => {
 }});
 
 pose.setOptions({
-    modelComplexity: 1, // Good balance of speed and accuracy
+    modelComplexity: 1, 
     smoothLandmarks: true,
-    enableSegmentation: true, // Crucial: Keeps the segmentation mask feature
+    enableSegmentation: true, 
     smoothSegmentation: true,
     minDetectionConfidence: 0.5,
     minTrackingConfidence: 0.5
 });
 
 
-// 4. RESULTS HANDLER (Runs every frame after Pose processes the image)
+// 4. FUNCTION TO DRAW THE VIRTUAL SHIRT
+function drawVirtualShirt(ctx, landmarks) {
+    if (!landmarks || landmarks.length === 0) return;
+
+    // Landmarks needed: 11: Left Shoulder, 12: Right Shoulder, 23: Left Hip, 24: Right Hip
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const leftHip = landmarks[23];
+    
+    if (!leftShoulder || !rightShoulder || leftShoulder.visibility < 0.5 || rightShoulder.visibility < 0.5) {
+        statusDiv.textContent = 'Status: Finding shoulders for clothing...';
+        return;
+    }
+    
+    // Normalize coordinates to canvas size
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // 1. Calculate Center and Rotation
+    const centerX = leftShoulder.x * width + (rightShoulder.x * width - leftShoulder.x * width) / 2;
+    const centerY = leftShoulder.y * height + (rightShoulder.y * height - leftShoulder.y * height) / 2;
+
+    // Rotation angle
+    const angleRadians = Math.atan2(rightShoulder.y * height - leftShoulder.y * height, rightShoulder.x * width - leftShoulder.x * width);
+    
+    // 2. Calculate Width and Height
+    const shoulderDistance = Math.hypot(rightShoulder.x * width - leftShoulder.x * width, rightShoulder.y * height - leftShoulder.y * height);
+    
+    // Scale the shirt width relative to the shoulder distance (1.2 is the scaling factor)
+    const shirtWidth = shoulderDistance * 1.2; 
+
+    // Scale height using shoulder-to-hip distance
+    const shoulderToHipNormalized = Math.hypot(leftHip.x - leftShoulder.x, leftHip.y - leftShoulder.y);
+    const shirtHeight = shoulderToHipNormalized * height * 2.5; 
+    
+    // 3. Load and Draw the Shirt Image
+    const shirtImage = document.getElementById('virtual-shirt-image');
+    
+    if (shirtImage && shirtImage.complete) {
+        ctx.save();
+        
+        // Translate context to the shoulder center (rotation point)
+        ctx.translate(centerX, centerY);
+        // Rotate context
+        ctx.rotate(angleRadians);
+
+        // Draw the image, centered on the shoulder midpoint
+        ctx.drawImage(
+            shirtImage,
+            -(shirtWidth / 2),  // X position to center
+            -(shirtHeight * 0.1), // Y position (nudged down from shoulders)
+            shirtWidth,
+            shirtHeight
+        );
+        
+        ctx.restore();
+    }
+}
+
+
+// 5. RESULTS HANDLER (Runs every frame after Pose processes the image)
 pose.onResults(function(results) {
     segmentationMask = results.segmentationMask;
     poseLandmarks = results.poseLandmarks;
     
-    // ⭐️ Send landmark data back to React Native ⭐️
+    // Send landmark data back to React Native
     if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ 
             type: 'poseData', 
@@ -78,7 +137,7 @@ pose.onResults(function(results) {
 });
 
 
-// 5. DRAWING LOOP AND RENDERING
+// 6. DRAWING LOOP AND RENDERING
 function drawCanvas(results) {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -97,8 +156,11 @@ function drawCanvas(results) {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // ⭐️ DRAW THE TRACKING DOTS ⭐️
-    ctx.globalCompositeOperation = 'source-over'; // Reset blend mode
+    // Draw the shirt (drawn first so it appears "under" the tracking dots)
+    ctx.globalCompositeOperation = 'source-over'; 
+    drawVirtualShirt(ctx, poseLandmarks); 
+    
+    // Draw the tracking dots (Red/Green visualization)
     drawConnectors(ctx, poseLandmarks, POSE_CONNECTIONS, { color: '#FF0000', lineWidth: 4 });
     drawLandmarks(ctx, poseLandmarks, { color: '#00FF00', lineWidth: 2 });
     
@@ -106,7 +168,7 @@ function drawCanvas(results) {
 }
 
 
-// 6. DELAYED CAMERA INITIALIZATION (CRUCIAL FINAL FIX)
+// 7. DELAYED CAMERA INITIALIZATION (CRUCIAL FINAL FIX)
 setTimeout(() => {
     statusDiv.textContent = 'Status: Requesting Camera Permission... (3 sec delay passed)';
     
@@ -134,4 +196,15 @@ setTimeout(() => {
             sendToPoseModel();
         };
     })
-    .
+    .catch(error => {
+        statusDiv.textContent = 'FATAL ERROR: Camera Blocked! ' + error.name + ': ' + error.message;
+    });
+}, 3000); 
+
+
+// 8. LOOP FUNCTION to continuously send the video frame to the Pose model
+async function sendToPoseModel() {
+    await pose.send({image: video});
+    window.requestAnimationFrame(sendToPoseModel);
+}
+// --- END OF mediapipe_web/script.js ---
